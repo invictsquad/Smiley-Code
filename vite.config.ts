@@ -29,5 +29,18 @@ export default defineConfig(({ mode }) => {
       },
       // Garantir que as variáveis VITE_ sejam carregadas automaticamente
       envPrefix: ['VITE_', 'GEMINI_'],
+      build: {
+        outDir: 'dist',
+        sourcemap: false,
+        minify: 'esbuild',
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              vendor: ['react', 'react-dom'],
+              ui: ['lucide-react', 'framer-motion'],
+            },
+          },
+        },
+      },
     };
 });

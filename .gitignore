@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel
+.vercel
+
+# Environment variables
+.env
+.env.production
+
+# Build artifacts
+build/
+out/
