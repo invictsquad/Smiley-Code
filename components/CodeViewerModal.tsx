@@ -97,6 +97,14 @@ const CodeViewerModal: React.FC<CodeViewerModalProps> = ({ fileTree, onClose, la
   const [searchTerm, setSearchTerm] = useState('');
   const filePaths = Object.keys(fileTree).sort();
 
+  // Debug: Log do fileTree recebido
+  console.log('🔍 CodeViewerModal - FileTree recebido:', {
+    fileCount: filePaths.length,
+    files: filePaths,
+    hasIndexHtml: !!fileTree['index.html'],
+    fileTreeKeys: Object.keys(fileTree)
+  });
+
   useEffect(() => {
     const defaultFile = filePaths.find(p => p.toLowerCase() === 'index.html') || filePaths[0];
     if (defaultFile) {

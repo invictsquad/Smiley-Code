@@ -6,6 +6,7 @@ import CodeViewerModal from './CodeViewerModal';
 import PublishModal from './PublishModal';
 import GitHubDeployModal from './GitHubDeployModal';
 import AnalysisPanel from './AnalysisPanel';
+import EnhancedAnalysisPanel from './EnhancedAnalysisPanel';
 import { t } from '../lib/i18n';
 import { RealDataIntegrator, popularDataSources } from '../lib/realDataIntegration';
 import { ProjectNameGenerator } from '../lib/projectNameGenerator';
@@ -16,13 +17,12 @@ import { DarkModeGenerator } from '../lib/darkModeGenerator';
 import { AnimationLibrary } from '../lib/animationLibrary';
 import { GradientGenerator } from '../lib/gradientGenerator';
 
-// FIX: The Gemini API client is initialized according to the provided guidelines.
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-
-// Per guidelines, initialize Gemini API client.
-// The API key is expected to be in import.meta.env.GEMINI_API_KEY.
-const genAI = new GoogleGenerativeAI(import.meta.env.GEMINI_API_KEY!);
+// Novos sistemas implementados
+import { smileyCodeAI } from '../lib/smileyCodeAI';
+import { workflowSystem, WorkflowMode } from '../lib/workflowSystem';
+import { XMLToolsSystem } from '../lib/xmlTools';
+import { CodingGuidelines, AutoCodeImprovement } from '../lib/codingGuidelines';
+import { conversationMemory } from '../lib/conversationMemory';
 
 interface EditorPageProps {
     initialProject: Project;
@@ -63,6 +63,12 @@ const EditorPage: React.FC<EditorPageProps> = ({
     const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
     const [isAnalysisPanelOpen, setIsAnalysisPanelOpen] = useState(false);
 
+    // Novos estados para o sistema aprimorado
+    const [currentWorkflowMode, setCurrentWorkflowMode] = useState<WorkflowMode>('DISCUSSION');
+    const [pendingPlan, setPendingPlan] = useState<string[] | null>(null);
+    const [codeAnalysis, setCodeAnalysis] = useState<any>(null);
+    const [showPlanApproval, setShowPlanApproval] = useState(false);
+
     const updateFileTree = useCallback((newFileTree: FileTree, actionName?: string, aiMessage?: string) => {
         const oldFileTree = project.fileTree;
 
@@ -71,10 +77,20 @@ const EditorPage: React.FC<EditorPageProps> = ({
             oldFileCount: Object.keys(oldFileTree).length,
             newFileCount: Object.keys(newFileTree).length,
             hasIndexHtml: !!newFileTree['index.html'],
-            newFiles: Object.keys(newFileTree)
+            newFiles: Object.keys(newFileTree),
+            fileTreeContent: newFileTree
         });
 
-        setProject(p => ({ ...p, fileTree: newFileTree }));
+        console.log('🔄 Atualizando projeto com nova fileTree...');
+        setProject(p => {
+            const updatedProject = { ...p, fileTree: newFileTree };
+            console.log('✅ Projeto atualizado:', {
+                projectId: updatedProject.id,
+                fileCount: Object.keys(updatedProject.fileTree).length,
+                files: Object.keys(updatedProject.fileTree)
+            });
+            return updatedProject;
+        });
 
         const newHistory = history.slice(0, currentHistoryIndex + 1);
         newHistory.push({ fileTree: newFileTree });
@@ -128,6 +144,9 @@ const EditorPage: React.FC<EditorPageProps> = ({
 
     // Set initial message and trigger first generation if there is an initial prompt
     useEffect(() => {
+        // Inicializar contexto de conversa
+        const context = conversationMemory.initializeContext(initialProject);
+        
         // Criar versão inicial do projeto
         if (versionHistory.length === 0) {
             const initialVersion: Version = {
@@ -150,6 +169,10 @@ const EditorPage: React.FC<EditorPageProps> = ({
             role: 'assistant',
             text: t('editor.initialMessage', language)
         };
+        
+        // Adicionar mensagem inicial à memória
+        conversationMemory.addMessage(initialProject.id, initialMessage);
+        
         if (initialPrompt) {
             const userMessage: Message = {
                 id: 'init-user',
@@ -160,7 +183,7 @@ const EditorPage: React.FC<EditorPageProps> = ({
             setMessages([initialMessage]);
             // We pass the message directly to handleSendMessage instead of setting state first
             // to avoid race conditions and ensure the function has the latest data.
-            handleSendMessage(userMessage, false, true);
+            handleSendMessage(userMessage, false, false, true);
         } else {
             setMessages([initialMessage]);
         }
@@ -322,268 +345,103 @@ const EditorPage: React.FC<EditorPageProps> = ({
         return 'tech'; // default
     };
 
-    const handleSendMessage = async (message: Message, isSeniorMode: boolean, isFirstMessage = false) => {
-        if (!import.meta.env.GEMINI_API_KEY) {
-            setMessages(prev => [...prev, { id: 'error', role: 'assistant', text: t('editor.apiKeyError', language) }]);
-            return;
-        }
-
+    const handleSendMessage = async (message: Message, isSeniorMode: boolean, isDiscussionMode = false, isFirstMessage = false) => {
+        console.log('🚀 Processando mensagem com sistema aprimorado do Smiley Code');
+        
         setMessages(prev => [...prev, message]);
         setIsLoading(true);
 
         try {
-            const systemInstruction = `You are "Smiley Code", an expert AI web developer specializing in creating beautiful, modern, enterprise-grade web applications using the latest best practices.
+            // Usar o novo sistema de workflow com memória
+            const workflowResult = await workflowSystem.processMessage(
+                message,
+                project.fileTree,
+                language,
+                isSeniorMode,
+                project.id,
+                isDiscussionMode
+            );
 
-**Core Mandate: Create Complete & Functional Applications**
-Your primary directive is to build complete, fully functional web applications. Do not create partial or non-working apps. Based on the user's request, the application you generate must include a minimum of five distinct, working features that are directly related to the user's prompt. Every feature must be fully implemented, interactive, and functional. Fulfilling the user's request is your top priority.
-
-**1. Core Technology Stack & Principles:**
-- **UI:** You MUST build UI by replicating shadcn/ui components using TailwindCSS utility classes. Project is pre-configured with the latest TailwindCSS.
-- **JavaScript:** All JS MUST be modern ES6+ in \`.js\` files with strong JSDoc type annotations.
-- **Code Quality:** Write clean, readable, component-based code. Use console logs for debugging.
-- **Responsiveness & A11y:** All apps MUST be mobile-first, responsive, and accessible (semantic HTML, ARIA). Every \`index.html\` MUST include \`<meta name="viewport" content="width=device-width, initial-scale=1.0">\`. Use semantic HTML5 elements, proper heading hierarchy, alt attributes for images, and ARIA labels where needed.
-- **Performance:** Optimize for fast loading - minify CSS/JS, compress images, use efficient selectors, implement lazy loading for images and content below the fold.
-- **SEO:** Include proper meta tags (title, description, keywords), Open Graph tags, structured data when relevant, and semantic HTML structure.
-- **Project Structure:** Use a clean folder structure (\`pages/\`, \`styles/\`, \`scripts/\`, \`assets/\`). The main files are \`index.html\`, \`styles/style.css\`, \`scripts/main.js\`. For multi-page apps or user flows, create separate HTML files (e.g., \`pages/about.html\`) and link them together appropriately. For larger projects, you may adopt a feature-based folder structure (e.g., \`features/authentication/\`, \`features/products/\`) for better organization.
-
-**2. AI Reasoning & Interaction:**
-- **Code-Awareness:** Before writing any code, you MUST thoroughly analyze the "Current Project Files" provided below to understand the existing structure and logic. Your changes MUST be incremental and compatible with the current code.
-- **Clarifying Questions:** If a user's request is ambiguous (e.g., "add a button"), you MUST ask clarifying questions instead of making assumptions. (e.g., "Certainly! What should the button say, where should it be placed, and what should happen when it's clicked?").
-- **Debugging Assistant:** If the user provides an error message from the browser console, you MUST analyze the existing code, explain the cause of the error in simple terms, and provide the necessary file changes to fix it.
-- **Style & Preference Learning:** Pay close attention to the user's feedback and explicit requests within the current session. If they ask for a specific color, font, or layout style, adopt it for subsequent responses in this session.
-- **Continuous Knowledge:** Apply the latest web development trends and UI/UX best practices to ensure the generated applications are modern and high-quality.
-- **"Explain This Code":** If a user pastes a code snippet and asks for an explanation, you MUST provide a clear, step-by-step breakdown of what the code does in the 'message' field of your response. In this case, you should not propose any file changes unless explicitly asked.
-
-**3. Design, UX & Interactivity (MOBILE FIRST):**
-- **Mobile First Design:** ALWAYS start with mobile design (320px+) and progressively enhance for larger screens. Use mobile-first CSS media queries (@media (min-width: 768px)).
-- **Touch-Friendly Interface:** All interactive elements must be at least 44px in size for touch accessibility. Use appropriate spacing between clickable elements.
-- **Responsive Typography:** Use fluid typography that scales smoothly across devices. Start with smaller font sizes for mobile and scale up for desktop.
-- **Compact Layouts:** Design compact, space-efficient layouts for mobile. Stack elements vertically on small screens and use horizontal layouts only on larger screens.
-- **Thumb-Friendly Navigation:** Place primary navigation and actions within easy thumb reach (bottom 2/3 of screen on mobile).
-- **Fast Loading:** Optimize for mobile networks with compressed images, minimal JavaScript, and efficient CSS.
-- **Modern Animations:** Use subtle animations that don't impact performance on mobile devices. Prefer CSS transforms over layout-changing animations.
-- **Smart Typography:** Use system fonts or fast-loading web fonts. Ensure text is readable on small screens with appropriate line height and spacing.
-- **Dark Mode Support:** Include mobile-optimized dark mode with proper contrast ratios for outdoor viewing.
-- **Accessibility First:** Ensure all interactions work with screen readers and keyboard navigation on mobile devices.
-- **Performance Optimization:** Implement lazy loading, optimize images for different screen densities, and minimize bundle size for mobile networks.
-
-**4. Advanced Features & Architecture (When Requested):**
-- **Mock Data Generation:** If asked to create examples or lists, you MUST create a \`scripts/mock-data.js\` file, export an array of realistic objects, and then import and use this data in \`scripts/main.js\` to populate the UI.
-- **Context-Aware Personalization:** Implement features based on user context. For example, add a script to display a greeting ("Good morning," "Good afternoon") based on the user's local time.
-- **Browser API Integration:** Seamlessly integrate with modern browser APIs. Use \`navigator.clipboard\` for "Copy to Clipboard" buttons and \`navigator.onLine\` to create an "Offline" status indicator.
-- **Client-Side Routing (SPA):** If asked to "make this a Single Page Application," you MUST implement a simple client-side router in \`scripts/router.js\` using the browser's History API, refactor the main script to load page content dynamically, and update the page's \`<title>\` and meta tags dynamically to reflect the current view.
-- **Local Storage Utilities:** If the user needs to persist data, you MUST create a helper file (e.g., \`scripts/storage.js\`) with clear functions (\`saveToStorage\`, \`loadFromStorage\`) to abstract interactions with \`localStorage\`.
-- **API Client SDK Generation:** If the user describes their API endpoints (e.g., "I have a GET /users and a POST /users/:id"), you MUST generate an \`scripts/api-client.js\` file containing functions for each endpoint (e.g., \`getUsers()\`, \`updateUser(id, data)\`).
-- **PWA Conversion:** If asked to "make this a PWA", you MUST: 1. Create a \`manifest.json\` file. 2. Create a \`sw.js\` (service worker) with a basic offline caching strategy. 3. Add the manifest link to \`index.html\`. 4. Add the service worker registration script to \`scripts/main.js\`.
-- **Data Visualization & Charts:** If asked to create a chart, you MUST add a CDN link for a charting library (like \`Chart.js\`) to \`index.html\`, add a \`<canvas>\` element, and then write the JavaScript in \`scripts/main.js\` to initialize the chart.
-
-**5. Performance & Optimization (When Requested):**
-- **Critical CSS:** Analyze the HTML/CSS and identify the essential styles for the "above-the-fold" content. You MUST then suggest inlining these critical styles in a \`<style>\` tag in the \`<head>\` of the \`index.html\`.
-- **Font Loading Strategy:** Optimize custom font loading by adding \`<link rel="preload" as="font">\` tags to the HTML and ensuring \`font-display: swap;\` is used in the CSS.
-- **Unused Code Detection:** If asked, you MUST analyze the JS and CSS files to identify functions, classes, or rules that are defined but never used, and suggest their removal to reduce file size.
-- **Refactor to Web Workers:** For computationally expensive tasks (e.g., complex data processing), you MUST be able to refactor the logic by creating a new file (e.g., \`scripts/my-worker.js\`) and moving the heavy lifting there, updating the main script to communicate with the worker.
-- **Browser Performance Analysis:** Generate code snippets using the Browser's Performance API (e.g., \`performance.measure()\`) to help the user measure and debug the speed of specific functions.
-
-**6. Deployment & Documentation (When Requested):**
-- **Bundler Configuration:** If asked to "set up for Vite," you MUST generate a \`package.json\` with the necessary dev dependencies and a standard \`vite.config.js\` file.
-- **User Persona Generation:** If asked to "create user personas," you MUST generate a \`PERSONAS.md\` file detailing different user archetypes to help guide the development process.
-- **Automatic README Generation:** If asked to "create a README," you MUST generate a \`README.md\` file that includes the project name, a brief description, and instructions on how to run it.
-
-**7. CRITICAL: Output Format**
-You MUST ONLY reply with a single markdown code block containing a valid JSON object. Do NOT add any text or explanation outside of this block.
-Your response MUST conform to this exact structure:
-\`\`\`json
-{
-  "message": "I've updated the homepage with a new hero section and restyled the primary button as you requested.",
-  "plan": [
-    "Add a new hero section to index.html.",
-    "Update the color and size of the main call-to-action button in styles/style.css.",
-    "Delete the old-logo.svg file as it is no longer used."
-  ],
-  "file_changes": {
-    "index.html": "<!DOCTYPE html>\\n<html>...</html>",
-    "styles/style.css": "body {\\n  font-family: sans-serif;\\n}\\n\\n.button {\\n  background-color: #ff6b6b;\\n}",
-    "assets/old-logo.svg": null
-  }
-}
-\`\`\`
-- The JSON object MUST have three keys: \`message\` (string), \`plan\` (array of strings), and \`file_changes\` (object).
-- In \`file_changes\`, the key is the file path and the value is the FULL new content of the file.
-- To DELETE a file, the value for that file path MUST be \`null\`.
-- Ensure all file content within the JSON is a single-line string with properly escaped characters (e.g., \`\\n\` for newlines, \`\\"\` for quotes).
-
-**Current Project Files:**
-${JSON.stringify(project.fileTree, null, 2)}
-
-${isSeniorMode ? 'The user is in Senior Mode. Provide more technical details and code-focused responses. Be concise and direct.' : ''}
-`;
-
-            const parts: any[] = [{ text: message.text }];
-            if (message.images) {
-                message.images.forEach(img => {
-                    parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
-                });
-            }
-
-            const model = genAI.getGenerativeModel({
-                model: 'gemini-2.5-flash',
-                systemInstruction: systemInstruction
+            console.log('📋 Resultado do workflow:', {
+                mode: workflowResult.mode,
+                success: workflowResult.success,
+                hasPlan: !!workflowResult.plan,
+                hasFileChanges: !!workflowResult.fileChanges,
+                needsApproval: workflowResult.needsApproval
             });
 
-            const result = await model.generateContent({
-                contents: [{ parts: [{ text: parts.map(p => p.text).join('\n') }] }],
-                generationConfig: {
-                    maxOutputTokens: 65536, // Maximum output tokens for Gemini 2.5 Flash
-                    temperature: 0.1, // Lower temperature for more consistent code generation
-                }
-            });
-            const response = await result.response;
-            let text = response.text();
+            // Atualizar estado do workflow
+            setCurrentWorkflowMode(workflowResult.mode);
 
-            if (!text) {
-                throw new Error(t('editor.errorMissingMessage', language));
-            }
+            // Processar resultado baseado no modo
+            if (workflowResult.mode === 'PLAN' && workflowResult.plan && workflowResult.needsApproval) {
+                // MODO DE PLANO - Mostrar plano para aprovação
+                setPendingPlan(workflowResult.plan);
+                setShowPlanApproval(true);
+                
+                const planMessage: Message = {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    text: workflowResult.response,
+                    plan: workflowResult.plan
+                };
+                setMessages(prev => [...prev, planMessage]);
 
-            // Log response size for debugging
-            console.log(`📊 API response size: ${text.length} characters`);
+            } else if (workflowResult.mode === 'ACTION' && workflowResult.fileChanges) {
+                // MODO DE AÇÃO - Aplicar mudanças nos arquivos
+                console.log('🔧 Aplicando mudanças de arquivos:', workflowResult.fileChanges);
+                
+                const newFileTree = { ...project.fileTree };
+                let updatedFiles: string[] = [];
 
-            // Apply 1MB limit to prevent memory issues
-            const MAX_RESPONSE_SIZE = 1048576; // 1MB limit
-            if (text.length > MAX_RESPONSE_SIZE) {
-                console.warn(`⚠️ Response too large (${text.length} chars), truncating to 1MB`);
-
-                // Try to find the last complete JSON block within the limit
-                const truncatedText = text.substring(0, MAX_RESPONSE_SIZE);
-                const jsonStart = truncatedText.indexOf('```json');
-
-                if (jsonStart !== -1) {
-                    // Look for the last complete JSON block within the limit
-                    const lastJsonEnd = truncatedText.lastIndexOf('```');
-                    if (lastJsonEnd > jsonStart + 7) {
-                        // Check if the content before the last ``` looks like valid JSON end
-                        const beforeEnd = truncatedText.substring(lastJsonEnd - 20, lastJsonEnd).trim();
-                        if (beforeEnd.includes('}') || beforeEnd.includes(']')) {
-                            text = truncatedText.substring(0, lastJsonEnd + 3);
-                            console.log(`✂️ Truncated to complete JSON block (${text.length} chars)`);
-                        } else {
-                            text = truncatedText;
-                            console.log(`✂️ Truncated to 1MB limit (${text.length} chars)`);
-                        }
+                // Aplicar mudanças de arquivos
+                Object.entries(workflowResult.fileChanges).forEach(([path, content]) => {
+                    if (content === null) {
+                        delete newFileTree[path];
+                        console.log(`🗑️ Arquivo deletado: ${path}`);
                     } else {
-                        text = truncatedText;
-                        console.log(`✂️ Truncated to 1MB limit (${text.length} chars)`);
+                        newFileTree[path] = content;
+                        console.log(`📄 Arquivo atualizado: ${path} (${content.length} chars)`);
                     }
+                    updatedFiles.push(path);
+                });
+
+                console.log('📁 FileTree antes da atualização:', Object.keys(project.fileTree));
+                console.log('📁 FileTree depois da atualização:', Object.keys(newFileTree));
+
+                if (updatedFiles.length > 0) {
+                    updateFileTree(newFileTree, workflowResult.response);
+                    console.log('✅ updateFileTree chamado com sucesso');
                 } else {
-                    text = truncatedText;
-                    console.log(`✂️ Truncated to 1MB limit (${text.length} chars)`);
+                    console.warn('⚠️ Nenhum arquivo foi atualizado');
                 }
+
+                const actionMessage: Message = {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    text: workflowResult.response,
+                    fileChanges: updatedFiles,
+                    plan: workflowResult.plan
+                };
+                setMessages(prev => [...prev, actionMessage]);
+
+            } else {
+                // MODO DE DISCUSSÃO - Apenas resposta conversacional
+                const discussionMessage: Message = {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    text: workflowResult.response
+                };
+                setMessages(prev => [...prev, discussionMessage]);
             }
 
-            // Only attempt to fix truncated JSON if the response seems incomplete
-            else if (text.length > 100000 && !text.trim().endsWith('```')) {
-                console.warn(`⚠️ Large response (${text.length} chars) may be truncated, attempting to find complete JSON`);
-
-                const jsonStart = text.indexOf('```json');
-                if (jsonStart !== -1) {
-                    // Look for the last complete JSON block
-                    const lastJsonEnd = text.lastIndexOf('```');
-                    if (lastJsonEnd > jsonStart + 7) {
-                        // Check if the content before the last ``` looks like valid JSON end
-                        const beforeEnd = text.substring(lastJsonEnd - 20, lastJsonEnd).trim();
-                        if (beforeEnd.includes('}') || beforeEnd.includes(']')) {
-                            text = text.substring(0, lastJsonEnd + 3);
-                            console.log(`✂️ Used complete JSON block (${text.length} chars)`);
-                        }
-                    }
-                }
-            }
-
-            const { text: aiMessage, plan, fileChanges } = parseAndApplyFileChanges(text, isFirstMessage);
-
-            // Auto-enhance project with modern features
-            if (fileChanges && fileChanges.length > 0) {
-                let enhancedFileTree = { ...project.fileTree };
-                let enhancements: string[] = [];
-
-                // 1. Real Data Integration
-                const needsData = aiMessage.toLowerCase().includes('data') ||
-                    aiMessage.toLowerCase().includes('api') ||
-                    aiMessage.toLowerCase().includes('fetch') ||
-                    enhancedFileTree['index.html']?.includes('blog') ||
-                    enhancedFileTree['index.html']?.includes('portfolio') ||
-                    enhancedFileTree['index.html']?.includes('gallery');
-
-                if (needsData && !enhancedFileTree['scripts/data-service.js']) {
-                    enhancedFileTree = RealDataIntegrator.injectDataFetching(enhancedFileTree, popularDataSources);
-                    enhancements.push('Real data integration');
-                }
-
-                // 2. Smart Typography (for new projects or when typography is mentioned)
-                const needsTypography = isFirstMessage ||
-                    aiMessage.toLowerCase().includes('font') ||
-                    aiMessage.toLowerCase().includes('typography') ||
-                    aiMessage.toLowerCase().includes('text');
-
-                if (needsTypography && !enhancedFileTree['styles/typography.css']) {
-                    const projectType = detectProjectType(message.text, enhancedFileTree);
-                    const suggestions = SmartTypographyManager.suggestTypography(message.text, projectType);
-                    if (suggestions.length > 0) {
-                        enhancedFileTree = SmartTypographyManager.injectTypography(enhancedFileTree, suggestions[0]);
-                        enhancements.push('Smart typography');
-                    }
-                }
-
-                // 3. Dark Mode (for new projects)
-                const needsDarkMode = isFirstMessage && !enhancedFileTree['scripts/dark-mode.js'];
-                if (needsDarkMode) {
-                    enhancedFileTree = DarkModeGenerator.injectDarkMode(enhancedFileTree);
-                    enhancements.push('Dark mode support');
-                }
-
-                // 4. Animations (when animations are mentioned or for interactive elements)
-                const needsAnimations = aiMessage.toLowerCase().includes('animation') ||
-                    aiMessage.toLowerCase().includes('hover') ||
-                    aiMessage.toLowerCase().includes('transition') ||
-                    (isFirstMessage && enhancedFileTree['index.html']?.includes('button'));
-
-                if (needsAnimations && !enhancedFileTree['styles/animations.css']) {
-                    const projectType = detectProjectType(message.text, enhancedFileTree);
-                    const suggestedAnimations = AnimationLibrary.suggestAnimationsForProject(projectType);
-                    enhancedFileTree = AnimationLibrary.injectAnimations(enhancedFileTree, suggestedAnimations);
-                    enhancements.push('Modern animations');
-                }
-
-                // 5. Gradients (when design/visual improvements are mentioned)
-                const needsGradients = aiMessage.toLowerCase().includes('gradient') ||
-                    aiMessage.toLowerCase().includes('background') ||
-                    aiMessage.toLowerCase().includes('visual') ||
-                    (isFirstMessage && aiMessage.toLowerCase().includes('modern'));
-
-                if (needsGradients && !enhancedFileTree['styles/gradients.css']) {
-                    const projectType = detectProjectType(message.text, enhancedFileTree);
-                    const suggestedGradients = GradientGenerator.suggestGradientsForProject(projectType);
-                    enhancedFileTree = GradientGenerator.injectGradients(enhancedFileTree, suggestedGradients);
-                    enhancements.push('Modern gradients');
-                }
-
-                // 6. Icon Library (when icons are mentioned or for navigation)
-                const needsIcons = aiMessage.toLowerCase().includes('icon') ||
-                    aiMessage.toLowerCase().includes('navigation') ||
-                    (isFirstMessage && enhancedFileTree['index.html']?.includes('nav'));
-
-                if (needsIcons && !enhancedFileTree['docs/icons.md']) {
-                    enhancedFileTree = IconLibraryManager.injectIconLibrary(enhancedFileTree, IconLibraryManager.lucideIcons.slice(0, 10));
-                    enhancements.push('Icon library');
-                }
-
-                // Apply enhancements if any were made
-                if (enhancements.length > 0) {
-                    updateFileTree(enhancedFileTree, `Enhanced with: ${enhancements.join(', ')}`);
-                }
+            // Auto-enhance project with modern features se houver mudanças de arquivos
+            if (workflowResult.mode === 'ACTION' && workflowResult.fileChanges) {
+                await applyAutoEnhancements(workflowResult.response, isFirstMessage);
             }
 
             // Sugerir nome melhor para o projeto se é a primeira mensagem
-            if (isFirstMessage && message.text && fileChanges && fileChanges.length > 0) {
+            if (isFirstMessage && message.text && workflowResult.fileChanges) {
                 try {
                     const suggestedName = await ProjectNameGenerator.generateProjectName(message.text);
                     if (suggestedName && suggestedName !== project.name) {
@@ -602,19 +460,8 @@ ${isSeniorMode ? 'The user is in Senior Mode. Provide more technical details and
                 }
             }
 
-
-
-            const assistantMessage: Message = {
-                id: Date.now().toString(),
-                role: 'assistant',
-                text: aiMessage,
-                plan,
-                fileChanges,
-            };
-            setMessages(prev => [...prev, assistantMessage]);
-
         } catch (error) {
-            console.error('Error calling Gemini API:', error);
+            console.error('Erro no sistema Smiley Code:', error);
             const errorMessage: Message = {
                 id: 'error-' + Date.now(),
                 role: 'assistant',
@@ -623,6 +470,153 @@ ${isSeniorMode ? 'The user is in Senior Mode. Provide more technical details and
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Função para aplicar melhorias automáticas
+    const applyAutoEnhancements = async (aiMessage: string, isFirstMessage: boolean) => {
+        let enhancedFileTree = { ...project.fileTree };
+        let enhancements: string[] = [];
+
+        // 1. Real Data Integration
+        const needsData = aiMessage.toLowerCase().includes('data') ||
+            aiMessage.toLowerCase().includes('api') ||
+            aiMessage.toLowerCase().includes('fetch') ||
+            enhancedFileTree['index.html']?.includes('blog') ||
+            enhancedFileTree['index.html']?.includes('portfolio') ||
+            enhancedFileTree['index.html']?.includes('gallery');
+
+        if (needsData && !enhancedFileTree['scripts/data-service.js']) {
+            enhancedFileTree = RealDataIntegrator.injectDataFetching(enhancedFileTree, popularDataSources);
+            enhancements.push('Real data integration');
+        }
+
+        // 2. Smart Typography
+        const needsTypography = isFirstMessage ||
+            aiMessage.toLowerCase().includes('font') ||
+            aiMessage.toLowerCase().includes('typography') ||
+            aiMessage.toLowerCase().includes('text');
+
+        if (needsTypography && !enhancedFileTree['styles/typography.css']) {
+            const projectType = detectProjectType(aiMessage, enhancedFileTree);
+            const suggestions = SmartTypographyManager.suggestTypography(aiMessage, projectType);
+            if (suggestions.length > 0) {
+                enhancedFileTree = SmartTypographyManager.injectTypography(enhancedFileTree, suggestions[0]);
+                enhancements.push('Smart typography');
+            }
+        }
+
+        // 3. Dark Mode
+        const needsDarkMode = isFirstMessage && !enhancedFileTree['scripts/dark-mode.js'];
+        if (needsDarkMode) {
+            enhancedFileTree = DarkModeGenerator.injectDarkMode(enhancedFileTree);
+            enhancements.push('Dark mode support');
+        }
+
+        // 4. Animations
+        const needsAnimations = aiMessage.toLowerCase().includes('animation') ||
+            aiMessage.toLowerCase().includes('hover') ||
+            aiMessage.toLowerCase().includes('transition') ||
+            (isFirstMessage && enhancedFileTree['index.html']?.includes('button'));
+
+        if (needsAnimations && !enhancedFileTree['styles/animations.css']) {
+            const projectType = detectProjectType(aiMessage, enhancedFileTree);
+            const suggestedAnimations = AnimationLibrary.suggestAnimationsForProject(projectType);
+            enhancedFileTree = AnimationLibrary.injectAnimations(enhancedFileTree, suggestedAnimations);
+            enhancements.push('Modern animations');
+        }
+
+        // 5. Gradients
+        const needsGradients = aiMessage.toLowerCase().includes('gradient') ||
+            aiMessage.toLowerCase().includes('background') ||
+            aiMessage.toLowerCase().includes('visual') ||
+            (isFirstMessage && aiMessage.toLowerCase().includes('modern'));
+
+        if (needsGradients && !enhancedFileTree['styles/gradients.css']) {
+            const projectType = detectProjectType(aiMessage, enhancedFileTree);
+            const suggestedGradients = GradientGenerator.suggestGradientsForProject(projectType);
+            enhancedFileTree = GradientGenerator.injectGradients(enhancedFileTree, suggestedGradients);
+            enhancements.push('Modern gradients');
+        }
+
+        // 6. Icon Library
+        const needsIcons = aiMessage.toLowerCase().includes('icon') ||
+            aiMessage.toLowerCase().includes('navigation') ||
+            (isFirstMessage && enhancedFileTree['index.html']?.includes('nav'));
+
+        if (needsIcons && !enhancedFileTree['docs/icons.md']) {
+            enhancedFileTree = IconLibraryManager.injectIconLibrary(enhancedFileTree, IconLibraryManager.lucideIcons.slice(0, 10));
+            enhancements.push('Icon library');
+        }
+
+        // 7. Aplicar melhorias automáticas de código
+        const { improvedFileTree, changesApplied } = AutoCodeImprovement.applyBasicImprovements(enhancedFileTree);
+        if (changesApplied.length > 0) {
+            enhancedFileTree = improvedFileTree;
+            enhancements.push(...changesApplied);
+        }
+
+        // Aplicar melhorias se houver
+        if (enhancements.length > 0) {
+            updateFileTree(enhancedFileTree, `Enhanced with: ${enhancements.join(', ')}`);
+            
+            // Mostrar mensagem sobre melhorias aplicadas
+            const enhancementMessage: Message = {
+                id: `enhancement-${Date.now()}`,
+                role: 'assistant',
+                text: `✨ Apliquei melhorias automáticas: ${enhancements.join(', ')}`
+            };
+            setMessages(prev => [...prev, enhancementMessage]);
+        }
+    };
+
+    // Função para aprovar plano
+    const handleApprovePlan = async () => {
+        if (pendingPlan) {
+            workflowSystem.approvePlan();
+            setShowPlanApproval(false);
+            setPendingPlan(null);
+            
+            // Executar o plano aprovado
+            const executeMessage: Message = {
+                id: `execute-plan-${Date.now()}`,
+                role: 'user',
+                text: 'Executar o plano aprovado'
+            };
+            
+            await handleSendMessage(executeMessage, false, false, false);
+        }
+    };
+
+    // Função para rejeitar plano
+    const handleRejectPlan = () => {
+        workflowSystem.rejectPlan();
+        setShowPlanApproval(false);
+        setPendingPlan(null);
+        
+        const rejectMessage: Message = {
+            id: `reject-plan-${Date.now()}`,
+            role: 'assistant',
+            text: 'Plano rejeitado. Vamos tentar uma abordagem diferente. O que você gostaria de modificar?'
+        };
+        setMessages(prev => [...prev, rejectMessage]);
+    };
+
+    // Função para análise de código
+    const handleAnalyzeCode = async () => {
+        try {
+            const analysis = CodingGuidelines.analyzeProject(project.fileTree);
+            setCodeAnalysis(analysis);
+            setIsAnalysisPanelOpen(true);
+            
+            const analysisMessage: Message = {
+                id: `analysis-${Date.now()}`,
+                role: 'assistant',
+                text: `📊 Análise do código concluída! Pontuação geral: ${analysis.overallScore}/100\n\n${analysis.summary.join('\n')}`
+            };
+            setMessages(prev => [...prev, analysisMessage]);
+        } catch (error) {
+            console.error('Erro ao analisar código:', error);
         }
     };
 
@@ -722,7 +716,12 @@ ${isSeniorMode ? 'The user is in Senior Mode. Provide more technical details and
                         onRedo={handleRedo}
                         canUndo={canUndo}
                         canRedo={canRedo}
-                        onOpenAnalysis={() => setIsAnalysisPanelOpen(true)}
+                        onOpenAnalysis={handleAnalyzeCode}
+                        currentWorkflowMode={currentWorkflowMode}
+                        showPlanApproval={showPlanApproval}
+                        pendingPlan={pendingPlan}
+                        onApprovePlan={handleApprovePlan}
+                        onRejectPlan={handleRejectPlan}
                     />
                 </div>
             </div>
@@ -760,11 +759,12 @@ ${isSeniorMode ? 'The user is in Senior Mode. Provide more technical details and
             )}
 
             {isAnalysisPanelOpen && (
-                <AnalysisPanel
+                <EnhancedAnalysisPanel
                     fileTree={project.fileTree}
                     language={language}
                     onApplyOptimization={handleApplyOptimization}
                     onClose={() => setIsAnalysisPanelOpen(false)}
+                    analysis={codeAnalysis}
                 />
             )}
 

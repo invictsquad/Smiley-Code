@@ -1,4 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { Toaster } from './components/ui/toaster';
+import { LoadingPage } from './components/ui/loading';
 import LandingPage from './components/LandingPage';
 import EditorPage from './components/EditorPage';
 import AuthModal from './components/AuthModal';
@@ -10,10 +14,10 @@ import Footer from './components/Footer';
 import { ProjectCategorizer } from './lib/projectCategories';
 import { ProjectNameGenerator } from './lib/projectNameGenerator';
 import { useAuth } from './lib/useAuth';
-import { SupabaseService } from './lib/supabaseService';
+import { queryClient } from './lib/queryClient';
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from './lib/useProjects';
 
-function App() {
-  const [projects, setProjects] = useState<Project[]>([]);
+function AppContent() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [initialPromptForEditor, setInitialPromptForEditor] = useState<string | null>(null);
   const [initialImagesForEditor, setInitialImagesForEditor] = useState<{ data: string; mimeType: string; }[] | null>(null);
@@ -21,61 +25,14 @@ function App() {
   const [language, setLanguage] = useState<Language>('pt');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<'landing' | 'privacy' | 'terms' | 'pricing'>('landing');
+  
   const { user, loading: authLoading } = useAuth();
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
 
-  useEffect(() => {
-    const loadProjects = async () => {
-      if (user) {
-        // Usuário logado: carregar do Supabase
-        try {
-          const { data: supabaseProjects, error } = await SupabaseService.getUserProjects();
-          if (error) {
-            console.error('Failed to load projects from Supabase:', error);
-            // Fallback para localStorage
-            loadFromLocalStorage();
-          } else {
-            setProjects(supabaseProjects || []);
-          }
-        } catch (error) {
-          console.error('Error loading projects from Supabase:', error);
-          loadFromLocalStorage();
-        }
-      } else {
-        // Usuário não logado: carregar do localStorage
-        loadFromLocalStorage();
-      }
-    };
-
-    const loadFromLocalStorage = () => {
-      try {
-        const savedProjects = localStorage.getItem('smiley-code-projects');
-        if (savedProjects) {
-          const parsedProjects = JSON.parse(savedProjects).map((p: any) => ({
-            ...p,
-            updatedAt: new Date(p.updatedAt),
-          }));
-          setProjects(parsedProjects);
-        }
-      } catch (error) {
-        console.error('Failed to load projects from localStorage', error);
-      }
-    };
-
-    console.log('🔐 Auth state:', { user: !!user, authLoading });
-    
-    if (!authLoading) {
-      loadProjects();
-    }
-  }, [user, authLoading]);
-
-  useEffect(() => {
-    // Sempre salvar no localStorage como backup
-    try {
-      localStorage.setItem('smiley-code-projects', JSON.stringify(projects));
-    } catch (error) {
-      console.error('Failed to save projects to localStorage', error);
-    }
-  }, [projects]);
+  // Removed useEffect hooks - now handled by React Query
   
   useEffect(() => {
     const root = window.document.documentElement;
@@ -93,74 +50,47 @@ function App() {
     let projectName: string;
     
     if (prompt && prompt.trim().length > 0) {
-      // Usar nome rápido primeiro, depois atualizar com IA
       projectName = ProjectNameGenerator.generateQuickName(prompt);
     } else {
       projectName = ProjectNameGenerator.generateQuickName('');
     }
 
-    const newProject: Project = {
-      id: `proj-${Date.now()}`,
+    const projectData = {
       name: projectName,
       fileTree: {},
       isPublic: false,
-      updatedAt: new Date(),
+      tags: undefined,
+      category: undefined,
+      description: undefined,
     };
     
-    // Criar no Supabase se o usuário estiver logado
-    if (user) {
-      try {
-        const { data: createdProject, error } = await SupabaseService.createProject({
-          name: newProject.name,
-          fileTree: newProject.fileTree,
-          isPublic: newProject.isPublic,
-          tags: newProject.tags,
-          category: newProject.category,
-          description: newProject.description,
-        });
-        
-        if (createdProject && !error) {
-          setProjects(prev => [createdProject, ...prev]);
-          setEditingProject(createdProject);
-        } else {
-          // Fallback para projeto local
-          setProjects(prev => [newProject, ...prev]);
-          setEditingProject(newProject);
-        }
-      } catch (error) {
-        console.error('Failed to create project in Supabase:', error);
-        // Fallback para projeto local
-        setProjects(prev => [newProject, ...prev]);
-        setEditingProject(newProject);
-      }
-    } else {
-      setProjects(prev => [newProject, ...prev]);
+    try {
+      const newProject = await createProjectMutation.mutateAsync(projectData);
       setEditingProject(newProject);
-    }
-    
-    if (prompt && prompt.trim().length > 0) {
-      setInitialPromptForEditor(prompt);
-      setInitialImagesForEditor(images || null);
       
-      // Gerar nome melhor com IA em background
-      try {
-        const aiGeneratedName = await ProjectNameGenerator.generateProjectName(prompt);
-        if (aiGeneratedName !== projectName) {
-          const updatedProject = { ...newProject, name: aiGeneratedName };
-          setProjects(prev => prev.map(p => p.id === newProject.id ? updatedProject : p));
-          setEditingProject(updatedProject);
-          
-          // Atualizar no Supabase também
-          if (user) {
-            await SupabaseService.updateProject(newProject.id, { name: aiGeneratedName });
+      if (prompt && prompt.trim().length > 0) {
+        setInitialPromptForEditor(prompt);
+        setInitialImagesForEditor(images || null);
+        
+        // Gerar nome melhor com IA em background
+        try {
+          const aiGeneratedName = await ProjectNameGenerator.generateProjectName(prompt);
+          if (aiGeneratedName !== projectName) {
+            await updateProjectMutation.mutateAsync({
+              id: newProject.id,
+              updates: { name: aiGeneratedName }
+            });
+            setEditingProject(prev => prev ? { ...prev, name: aiGeneratedName } : null);
           }
+        } catch (error) {
+          console.warn('Failed to generate AI project name:', error);
         }
-      } catch (error) {
-        console.warn('Failed to generate AI project name:', error);
+      } else {
+        setInitialPromptForEditor(null);
+        setInitialImagesForEditor(null);
       }
-    } else {
-      setInitialPromptForEditor(null);
-      setInitialImagesForEditor(null);
+    } catch (error) {
+      console.error('Failed to create project:', error);
     }
   };
 
@@ -170,18 +100,21 @@ function App() {
     setEditingProject(project);
   };
 
-  const handleRemixProject = (projectToRemix: Project) => {
-    const newProject: Project = {
+  const handleRemixProject = async (projectToRemix: Project) => {
+    const projectData = {
       ...projectToRemix,
-      id: `proj-${Date.now()}`,
       name: `${projectToRemix.name} (Remix)`,
       isPublic: false,
-      updatedAt: new Date(),
     };
-    setProjects(prev => [newProject, ...prev]);
-    setInitialPromptForEditor(null);
-    setInitialImagesForEditor(null);
-    setEditingProject(newProject);
+    
+    try {
+      const newProject = await createProjectMutation.mutateAsync(projectData);
+      setInitialPromptForEditor(null);
+      setInitialImagesForEditor(null);
+      setEditingProject(newProject);
+    } catch (error) {
+      console.error('Failed to remix project:', error);
+    }
   };
 
   const handleSaveAndExit = async (updatedProject: Project) => {
@@ -191,57 +124,44 @@ function App() {
       updatedAt: new Date()
     });
     
-    // Atualizar estado local
-    setProjects(prev => 
-      prev.map(p => p.id === updatedProject.id ? enhancedProject : p)
-    );
-    
-    // Salvar no Supabase se o usuário estiver logado
-    if (user) {
-      try {
-        await SupabaseService.updateProject(enhancedProject.id, enhancedProject);
-      } catch (error) {
-        console.error('Failed to save project to Supabase:', error);
-      }
+    try {
+      await updateProjectMutation.mutateAsync({
+        id: enhancedProject.id,
+        updates: enhancedProject
+      });
+      setEditingProject(null);
+    } catch (error) {
+      console.error('Failed to save project:', error);
     }
-    
-    setEditingProject(null);
   };
 
   const handleTogglePublic = async (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
 
-    const updatedProject = { ...project, isPublic: !project.isPublic, updatedAt: new Date() };
-    
-    setProjects(prev =>
-      prev.map(p => p.id === projectId ? updatedProject : p)
-    );
-
-    // Atualizar no Supabase se o usuário estiver logado
-    if (user) {
-      try {
-        await SupabaseService.updateProject(projectId, { isPublic: updatedProject.isPublic });
-      } catch (error) {
-        console.error('Failed to update project visibility in Supabase:', error);
-      }
+    try {
+      await updateProjectMutation.mutateAsync({
+        id: projectId,
+        updates: { isPublic: !project.isPublic }
+      });
+    } catch (error) {
+      console.error('Failed to update project visibility:', error);
     }
   };
   
   const handleDeleteProject = async (projectId: string) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      
-      // Deletar do Supabase se o usuário estiver logado
-      if (user) {
-        try {
-          await SupabaseService.deleteProject(projectId);
-        } catch (error) {
-          console.error('Failed to delete project from Supabase:', error);
-        }
+    if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
+      try {
+        await deleteProjectMutation.mutateAsync(projectId);
+      } catch (error) {
+        console.error('Failed to delete project:', error);
       }
     }
   };
+
+  if (authLoading || projectsLoading) {
+    return <LoadingPage text="Carregando aplicação..." />;
+  }
 
   return (
     <>
@@ -319,6 +239,19 @@ function App() {
         language={language}
       />
     </>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingPage />}>
+          <AppContent />
+        </Suspense>
+        <Toaster />
+      </ErrorBoundary>
+    </QueryClientProvider>
   );
 }
 

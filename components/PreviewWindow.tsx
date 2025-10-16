@@ -378,7 +378,17 @@ const PreviewWindow: React.FC<PreviewWindowProps> = ({ fileTree, language, isSid
   const generatedCode = isLoading
     ? generateLoadingHtml(language)
     : generatePreviewHtml(fileTree, language);
-  const hasFiles = fileTree && Object.keys(fileTree).length > 0 && fileTree['index.html'];
+  const hasFiles = fileTree && Object.keys(fileTree).length > 0;
+  const hasIndexHtml = hasFiles && fileTree['index.html'];
+
+  // Debug: Log do fileTree no PreviewWindow
+  console.log('🖼️ PreviewWindow - FileTree:', {
+    hasFiles,
+    hasIndexHtml,
+    fileCount: fileTree ? Object.keys(fileTree).length : 0,
+    files: fileTree ? Object.keys(fileTree) : [],
+    isLoading
+  });
   
   // Debug logs
   console.log('🎬 PreviewWindow render:', {
@@ -414,8 +424,19 @@ const PreviewWindow: React.FC<PreviewWindowProps> = ({ fileTree, language, isSid
 
           <div className="flex items-center gap-2">
             <IconButton icon={<Code size={18}/>} label={t('preview.code', language)} onClick={onShowCodeViewer} disabled={!hasFiles || isLoading} />
-            <IconButton icon={<ExternalLink size={18}/>} label={t('preview.openInNewTab', language)} onClick={handleOpenInNewTab} disabled={!hasFiles || isLoading}/>
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} disabled={!hasFiles || isLoading} onClick={onInitiatePublish} className="flex items-center gap-2 px-3 py-2 border-2 border-slate-800 dark:border-dark-border rounded-lg shadow-comic-sm bg-brand-coral text-slate-800 font-bold text-sm transition-colors hover:bg-brand-yellow disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-400">
+            {/* Debug: Botão forçado para testar */}
+            <button 
+              onClick={() => {
+                console.log('🔧 Debug: Forçando abertura do CodeViewer');
+                onShowCodeViewer();
+              }}
+              className="px-2 py-1 bg-red-500 text-white text-xs rounded"
+              title="Debug: Forçar Code Viewer"
+            >
+              DEBUG
+            </button>
+            <IconButton icon={<ExternalLink size={18}/>} label={t('preview.openInNewTab', language)} onClick={handleOpenInNewTab} disabled={!hasIndexHtml || isLoading}/>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} disabled={!hasIndexHtml || isLoading} onClick={onInitiatePublish} className="flex items-center gap-2 px-3 py-2 border-2 border-slate-800 dark:border-dark-border rounded-lg shadow-comic-sm bg-brand-coral text-slate-800 font-bold text-sm transition-colors hover:bg-brand-yellow disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-400">
                 <Upload size={18}/>
                 <span className="hidden sm:inline">{t('preview.publish', language)}</span>
             </motion.button>
