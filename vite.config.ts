@@ -3,7 +3,7 @@
  * 
  * @author Luiz Antônio De Lima Mendonça
  * @location Resende, Rio de Janeiro, Brasil
- * @repository https://github.com/luizmendonca/smiley-code
+ * @repository https://github.com/invictsquad/Smiley-Code
  * @license MIT
  */
 

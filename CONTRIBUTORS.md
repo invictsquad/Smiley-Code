@@ -5,11 +5,11 @@
 **Luiz Antônio De Lima Mendonça**
 - 📍 Localização: Resende, Rio de Janeiro, Brasil
 - 📧 Email: luiz@smileycode.com.br
-- 🔗 GitHub: [@luizmendonca](https://github.com/luizmendonca)
+- 🔗 GitHub: [@invictsquad](https://github.com/invictsquad)
 
 ## Repositório Oficial
 
-🔗 **Link oficial**: https://github.com/luizmendonca/smiley-code
+🔗 **Link oficial**: https://github.com/invictsquad/Smiley-Code
 
 ## Licença e Uso
 
@@ -20,7 +20,7 @@ Este projeto é licenciado sob a **Licença MIT**. Veja o arquivo [LICENSE](./LI
 Se você usar este código ou criar um fork deste projeto, você **DEVE**:
 
 1. ✅ **Manter os créditos** ao autor original (Luiz Antônio De Lima Mendonça)
-2. ✅ **Incluir um link** para o repositório oficial: https://github.com/luizmendonca/smiley-code
+2. ✅ **Incluir um link** para o repositório oficial: https://github.com/invictsquad/Smiley-Code
 3. ✅ **Manter este aviso** de copyright em todas as cópias ou partes substanciais do software
 4. ✅ **Respeitar os termos** da licença MIT
 
@@ -30,7 +30,7 @@ Ao usar este código, inclua em seu projeto:
 
 ```markdown
 Baseado em Smiley Code por Luiz Antônio De Lima Mendonça
-Repositório original: https://github.com/luizmendonca/smiley-code
+Repositório original: https://github.com/invictsquad/Smiley-Code
 ```
 
 ## Contribuições

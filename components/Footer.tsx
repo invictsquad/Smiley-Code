@@ -22,7 +22,7 @@ const Footer: React.FC<FooterProps> = ({ language, onNavigate }) => {
               {t('landing.subtitle', language)}
             </p>
             <div className="flex justify-center md:justify-start gap-4 mt-4">
-              <a href="https://github.com/luizmendonca/smiley-code" target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="text-slate-500 hover:text-brand-teal"><Github size={24} /></a>
+              <a href="https://github.com/invictsquad/Smiley-Code" target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="text-slate-500 hover:text-brand-teal"><Github size={24} /></a>
             </div>
           </div>
 
@@ -76,7 +76,7 @@ const Footer: React.FC<FooterProps> = ({ language, onNavigate }) => {
             Criado por <strong>Luiz Antônio De Lima Mendonça</strong> em Resende, RJ - Brasil
           </p>
           <p className="text-xs mt-1">
-            🔗 Repositório oficial: <a href="https://github.com/luizmendonca/smiley-code" target="_blank" rel="noopener noreferrer" className="text-brand-teal hover:underline">github.com/luizmendonca/smiley-code</a>
+            🔗 Repositório oficial: <a href="https://github.com/invictsquad/Smiley-Code" target="_blank" rel="noopener noreferrer" className="text-brand-teal hover:underline">github.com/invictsquad/Smiley-Code</a>
           </p>
         </div>
       </div>

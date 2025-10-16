@@ -37,22 +37,24 @@ Smiley Code é uma plataforma revolucionária onde você constrói aplicações 
 
 **Luiz Antônio De Lima Mendonça**
 - Localização: Resende, Rio de Janeiro, Brasil
-- GitHub: [@luizmendonca](https://github.com/luizmendonca)
+- GitHub: [@invictsquad](https://github.com/invictsquad)
 
 ## Licença
 
 Este projeto é de código aberto sob a Licença MIT. Veja o arquivo LICENSE para detalhes.
 
+
+
 ### Direitos Autorais
 
 Se você usar este código ou criar um fork, por favor:
 - Mantenha os créditos ao autor original
-- Inclua um link para o repositório oficial: https://github.com/luizmendonca/smiley-code
+- Inclua um link para o repositório oficial: https://github.com/invictsquad/Smiley-Code
 - Respeite os termos da licença MIT
 
 ## Repositório Oficial
 
-🔗 **Link oficial**: https://github.com/luizmendonca/smiley-code
+🔗 **Link oficial**: https://github.com/invictsquad/Smiley-Code
 
 ---
 
