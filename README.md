@@ -43,7 +43,7 @@ Smiley Code é uma plataforma revolucionária onde você constrói aplicações 
 
 Este projeto é de código aberto sob a Licença MIT. Veja o arquivo LICENSE para detalhes.
 
-![Smiley Code Interface](./public\smiley code 2.png)
+![Smiley Code Interface](./public/smiley-code-2.png)
 
 ### Direitos Autorais
 
