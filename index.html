@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smiley Code - Construtor de Aplicações Web com IA</title>
+  <meta name="description" content="Construa aplicações web completas conversando com IA. Criado por Luiz Antônio De Lima Mendonça em Resende, RJ." />
+  <meta name="author" content="Luiz Antônio De Lima Mendonça" />
+  <meta name="keywords" content="smiley code, construtor web, IA, aplicações web, desenvolvimento, brasil" />
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="Smiley Code - Construtor de Aplicações Web com IA" />
+  <meta property="og:description" content="Construa aplicações web completas conversando com IA" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://smileycode.com.br" />
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Smiley Code - Construtor de Aplicações Web com IA" />
+  <meta name="twitter:description" content="Construa aplicações web completas conversando com IA" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;700&family=Paytone+One&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            'display': ['"Paytone One"', 'sans-serif'],
+            'body': ['"Onest"', 'sans-serif'],
+          },
+          colors: {
+            'brand-coral': '#ff6b6b',
+            'brand-teal': '#4ecdc4',
+            'brand-yellow': '#ffd93d',
+            'brand-green': '#a8e6cf',
+            'brand-bg': '#fdfaf4', // A warmer off-white
+            'dark-bg': '#1e293b', // Slate 900
+            'dark-surface': '#334155', // Slate 700
+            'dark-border': '#64748b', // Slate 500
+            'dark-text': '#e2e8f0', // Slate 200
+          },
+          boxShadow: {
+            'comic': '4px 4px 0px #1e293b',
+            'comic-sm': '2px 2px 0px #1e293b',
+            'comic-inset': 'inset 2px 2px 0px rgba(0,0,0,0.1)',
+            'comic-dark': '4px 4px 0px #e2e8f0',
+            'comic-sm-dark': '2px 2px 0px #e2e8f0',
+          },
+          borderRadius: {
+            'lg': '0.75rem',
+            'xl': '1rem',
+          },
+          transitionTimingFunction: {
+            'out-back': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+          },
+          animation: {
+            'scroll-left': 'scroll-left 30s linear infinite',
+          },
+          keyframes: {
+            'scroll-left': {
+              '0%': { transform: 'translateX(0)' },
+              '100%': { transform: 'translateX(-100%)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.24.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.545.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-brand-bg dark:bg-dark-bg font-body text-slate-800 dark:text-dark-text">
+  <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

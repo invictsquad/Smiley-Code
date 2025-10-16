@@ -1,0 +1,35 @@
+{
+  "name": "smiley-code",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Smiley Code - Construtor de aplicações web com IA",
+  "author": "Luiz Antônio De Lima Mendonça <luiz@smileycode.com.br>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luizmendonca/smiley-code.git"
+  },
+  "homepage": "https://smileycode.com.br",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.75.0",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.545.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

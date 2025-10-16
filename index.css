@@ -1,0 +1,171 @@
+/* Smiley Code - Construtor de Aplicações Web com IA - Estilos Globais */
+
+/* Reset and base styles */
+
+/* Animação para carrossel infinito */
+@keyframes scroll-brands {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Teste de animação mais rápida */
+@keyframes scroll-brands-test {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100px);
+  }
+}
+
+.brands-scroll {
+  animation: scroll-brands 15s linear infinite !important;
+  display: flex !important;
+  width: max-content !important;
+  will-change: transform;
+}
+
+/* Teste com animação mais visível */
+.brands-scroll-test {
+  animation: scroll-brands-test 3s linear infinite !important;
+  display: flex !important;
+  width: max-content !important;
+  will-change: transform;
+}
+
+.brands-scroll:hover {
+  animation-play-state: paused;
+}
+
+/* Container do carrossel removido - usando apenas brands-scroll */
+
+/* Efeito de fade nas bordas */
+.carousel-fade-left {
+  background: linear-gradient(to right, var(--brand-bg) 0%, transparent 100%);
+}
+
+.carousel-fade-right {
+  background: linear-gradient(to left, var(--brand-bg) 0%, transparent 100%);
+}
+
+/* Variáveis CSS para cores */
+:root {
+  --brand-bg: #fdfaf4;
+}
+
+.dark {
+  --brand-bg: #1e293b;
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Onest', sans-serif;
+  line-height: 1.6;
+  color: #1e293b;
+  background-color: #fdfaf4;
+}
+
+/* Utility classes for consistent spacing */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Loading animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth transitions */
+.transition-all {
+  transition: all 0.3s ease;
+}
+
+/* Focus styles for accessibility */
+*:focus {
+  outline: 2px solid #ffd93d;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark mode styles */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #334155;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #64748b;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  * {
+    border-color: currentColor !important;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
